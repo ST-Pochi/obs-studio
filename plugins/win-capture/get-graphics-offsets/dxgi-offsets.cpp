@@ -16,6 +16,7 @@ typedef HRESULT(WINAPI *create_fac_t)(IID *id, void **);
 
 struct dxgi_info {
 	HMODULE module;
+	HMODULE d3d11_module;
 	HWND hwnd;
 	IDXGISwapChain *swap;
 	ID3D11Device *device;
@@ -30,7 +31,6 @@ static const IID dxgiFactory2 = {0x50c83a1c,
 
 static inline bool dxgi_init(dxgi_info &info)
 {
-	HMODULE d3d11_module;
 	d3d11create_t create;
 	create_fac_t create_factory;
 	IDXGIFactory1 *factory;
@@ -53,12 +53,12 @@ static inline bool dxgi_init(dxgi_info &info)
 	create_factory =
 		(create_fac_t)GetProcAddress(info.module, "CreateDXGIFactory1");
 
-	d3d11_module = LoadLibraryA("d3d11.dll");
-	if (!d3d11_module) {
+	info.d3d11_module = LoadLibraryA("d3d11.dll");
+	if (!info.d3d11_module) {
 		return false;
 	}
 
-	create = (d3d11create_t)GetProcAddress(d3d11_module,
+	create = (d3d11create_t)GetProcAddress(info.d3d11_module,
 					       "D3D11CreateDeviceAndSwapChain");
 	if (!create) {
 		return false;
@@ -90,9 +90,11 @@ static inline bool dxgi_init(dxgi_info &info)
 	
 	D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_0};
 
+	const bool debug = false;//device offset will be incorrect for debug device 
+	UINT flags = debug ? D3D11_CREATE_DEVICE_DEBUG : 0;
 
 	hr = create(adapter, D3D_DRIVER_TYPE_UNKNOWN, nullptr,
-		    0 /*D3D11_CREATE_DEVICE_DEBUG*/, levels,
+		    flags, levels,
 		    sizeof levels / sizeof levels[0], D3D11_SDK_VERSION, &desc,
 		    &info.swap, &info.device,
 		    nullptr, &info.context);
@@ -128,9 +130,8 @@ void get_dxgi_offsets(struct dxgi_offsets *offsets,
 	if (success) {
 		offsets->present = vtable_offset(info.module, info.swap, 8);
 		offsets->resize = vtable_offset(info.module, info.swap, 13);
-		offsets3->create_texture2d = vtable_offset(info.module, info.device, 5);
-
-
+		offsets3->create_texture2d = vtable_offset(info.d3d11_module, info.device, 0);
+		
 		IDXGISwapChain1 *swap1;
 		hr = info.swap->QueryInterface(__uuidof(IDXGISwapChain1),
 					       (void **)&swap1);

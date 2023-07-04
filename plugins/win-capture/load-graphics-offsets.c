@@ -43,6 +43,10 @@ static inline bool load_offsets_from_string(struct graphics_offsets *offsets,
 	offsets->dxgi2.release =
 		(uint32_t)config_get_uint(config, "dxgi", "release");
 
+	offsets->d3d11.create_texture2d=
+		(uint32_t)config_get_uint(config, "d3d11", "create_texture2d");
+
+
 	config_close(config);
 	return true;
 }

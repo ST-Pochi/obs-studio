@@ -41,6 +41,7 @@ int main(int argc, char *argv[])
 	printf("present1=0x%" PRIx32 "\n", dxgi.present1);
 	printf("resize=0x%" PRIx32 "\n", dxgi.resize);
 	printf("release=0x%" PRIx32 "\n", dxgi2.release);
+	printf("[d3d11]\n");
 	printf("create_texture2d=0x%" PRIx32 "\n", d3d11.create_texture2d);
 
 	(void)argc;
