@@ -44,6 +44,7 @@ static bool setup_dxgi(IDXGISwapChain *swap)
 {
 	IUnknown *device;
 	HRESULT hr;
+	hlog("setup_dxgi");
 
 	hr = swap->GetDevice(__uuidof(ID3D11Device), (void **)&device);
 	if (SUCCEEDED(hr)) {

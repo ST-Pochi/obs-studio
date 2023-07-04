@@ -26,7 +26,7 @@ static inline uint32_t vtable_offset(HMODULE module, void *cls,
 }
 
 extern void get_dxgi_offsets(struct dxgi_offsets *offsets,
-			     struct dxgi_offsets2 *offsets2);
+			     struct dxgi_offsets2 *offsets2, struct d3d11_offsets *offsets3);
 extern void get_d3d9_offsets(struct d3d9_offsets *offsets);
 extern void get_d3d8_offsets(struct d3d8_offsets *offsets);
 

@@ -1,19 +1,25 @@
 #include <windows.h>
-#include <d3d10.h>
+#include <d3d11.h>
 #include <VersionHelpers.h>
 #include <dxgi1_2.h>
 #include "get-graphics-offsets.h"
 
-typedef HRESULT(WINAPI *d3d10create_t)(IDXGIAdapter *, D3D10_DRIVER_TYPE,
-				       HMODULE, UINT, UINT,
-				       DXGI_SWAP_CHAIN_DESC *,
-				       IDXGISwapChain **, IUnknown **);
+typedef HRESULT(WINAPI *d3d11create_t)(
+	IDXGIAdapter *pAdapter, D3D_DRIVER_TYPE DriverType, HMODULE Software,
+	UINT Flags, const D3D_FEATURE_LEVEL *pFeatureLevels, UINT FeatureLevels,
+	UINT SDKVersion, const DXGI_SWAP_CHAIN_DESC *pSwapChainDesc,
+	IDXGISwapChain **ppSwapChain, ID3D11Device **ppDevice,
+	D3D_FEATURE_LEVEL *pFeatureLevel,
+	ID3D11DeviceContext **ppImmediateContext);
+
 typedef HRESULT(WINAPI *create_fac_t)(IID *id, void **);
 
 struct dxgi_info {
 	HMODULE module;
 	HWND hwnd;
 	IDXGISwapChain *swap;
+	ID3D11Device *device;
+	ID3D11DeviceContext *context;
 };
 
 static const IID dxgiFactory2 = {0x50c83a1c,
@@ -24,16 +30,15 @@ static const IID dxgiFactory2 = {0x50c83a1c,
 
 static inline bool dxgi_init(dxgi_info &info)
 {
-	HMODULE d3d10_module;
-	d3d10create_t create;
+	HMODULE d3d11_module;
+	d3d11create_t create;
 	create_fac_t create_factory;
 	IDXGIFactory1 *factory;
 	IDXGIAdapter1 *adapter;
-	IUnknown *device;
 	HRESULT hr;
 
 	info.hwnd = CreateWindowExA(0, DUMMY_WNDCLASS,
-				    "d3d10 get-offset window", WS_POPUP, 0, 0,
+				    "d3d11 get-offset window", WS_POPUP, 0, 0,
 				    2, 2, nullptr, nullptr,
 				    GetModuleHandleA(nullptr), nullptr);
 	if (!info.hwnd) {
@@ -48,13 +53,13 @@ static inline bool dxgi_init(dxgi_info &info)
 	create_factory =
 		(create_fac_t)GetProcAddress(info.module, "CreateDXGIFactory1");
 
-	d3d10_module = LoadLibraryA("d3d10.dll");
-	if (!d3d10_module) {
+	d3d11_module = LoadLibraryA("d3d11.dll");
+	if (!d3d11_module) {
 		return false;
 	}
 
-	create = (d3d10create_t)GetProcAddress(d3d10_module,
-					       "D3D10CreateDeviceAndSwapChain");
+	create = (d3d11create_t)GetProcAddress(d3d11_module,
+					       "D3D11CreateDeviceAndSwapChain");
 	if (!create) {
 		return false;
 	}
@@ -82,20 +87,30 @@ static inline bool dxgi_init(dxgi_info &info)
 	desc.OutputWindow = info.hwnd;
 	desc.SampleDesc.Count = 1;
 	desc.Windowed = true;
+	
+	D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_0};
 
-	hr = create(adapter, D3D10_DRIVER_TYPE_HARDWARE, nullptr, 0,
-		    D3D10_SDK_VERSION, &desc, &info.swap, &device);
+
+	hr = create(adapter, D3D_DRIVER_TYPE_UNKNOWN, nullptr,
+		    0 /*D3D11_CREATE_DEVICE_DEBUG*/, levels,
+		    sizeof levels / sizeof levels[0], D3D11_SDK_VERSION, &desc,
+		    &info.swap, &info.device,
+		    nullptr, &info.context);
+
 	adapter->Release();
 	if (FAILED(hr)) {
 		return false;
 	}
 
-	device->Release();
 	return true;
 }
 
 static inline void dxgi_free(dxgi_info &info)
 {
+	if (info.context)
+		info.context->Release();
+	if (info.device)
+		info.device->Release();
 	if (info.swap)
 		info.swap->Release();
 	if (info.hwnd)
@@ -103,7 +118,8 @@ static inline void dxgi_free(dxgi_info &info)
 }
 
 void get_dxgi_offsets(struct dxgi_offsets *offsets,
-		      struct dxgi_offsets2 *offsets2)
+		      struct dxgi_offsets2 *offsets2,
+                      struct d3d11_offsets *offsets3)
 {
 	dxgi_info info = {};
 	bool success = dxgi_init(info);
@@ -112,6 +128,8 @@ void get_dxgi_offsets(struct dxgi_offsets *offsets,
 	if (success) {
 		offsets->present = vtable_offset(info.module, info.swap, 8);
 		offsets->resize = vtable_offset(info.module, info.swap, 13);
+		offsets3->create_texture2d = vtable_offset(info.module, info.device, 5);
+
 
 		IDXGISwapChain1 *swap1;
 		hr = info.swap->QueryInterface(__uuidof(IDXGISwapChain1),
