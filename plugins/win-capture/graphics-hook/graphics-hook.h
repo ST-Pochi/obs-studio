@@ -62,6 +62,7 @@ extern bool hook_vulkan(void);
 extern void d3d10_capture(void *swap, void *backbuffer);
 extern void d3d10_free(void);
 extern void d3d11_capture(void *swap, void *backbuffer);
+extern void d3d11_depth_callback(void *view);
 extern void d3d11_free(void);
 
 #ifdef COMPILE_D3D12_HOOK

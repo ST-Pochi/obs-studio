@@ -44,6 +44,7 @@ struct dxgi_swap_data {
 	ID3D11DeviceContext *context;
 	void (*capture)(void *, void *);
 	void (*free)(void);
+	void (*depth_callback)(void *);
 };
 
 static struct dxgi_swap_data data = {};
@@ -68,6 +69,7 @@ static bool setup_dxgi(IDXGISwapChain *swap)
 			d3d11->GetImmediateContext(&data.context);
 
 			data.swap = swap;
+			data.depth_callback = d3d11_depth_callback;
 			data.capture = d3d11_capture;
 			data.free = d3d11_free;
 			return true;
@@ -157,6 +159,9 @@ static void STDMETHODCALLTYPE hook_om_set_render_targets(
 		ID3D11DepthStencilView *pDepthStencilView)
 {
 	hlog("OMSetRenderTargets callback %p numViews %d depthStencil %p", This, NumViews, pDepthStencilView);
+
+	if (data.depth_callback)
+		data.depth_callback(pDepthStencilView);
 
 	RealOMSetRenderTargets(This, NumViews, ppRenderTargetViews,
 					       pDepthStencilView);

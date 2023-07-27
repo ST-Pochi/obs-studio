@@ -370,3 +370,9 @@ void d3d11_capture(void *swap_ptr, void *backbuffer_ptr)
 		backbuffer->Release();
 	}
 }
+
+
+void d3d11_depth_callback(void *view_ptr)
+{
+	
+}
