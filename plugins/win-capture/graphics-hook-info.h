@@ -53,6 +53,7 @@ struct dxgi_offsets {
 
 struct d3d11_offsets {
 	uint32_t create_texture2d;
+	uint32_t om_set_render_targets;
 };
 
 struct dxgi_offsets2 {
@@ -123,7 +124,7 @@ struct hook_info {
 	/* hook addresses */
 	struct graphics_offsets offsets;
 
-	uint32_t reserved[125];
+	uint32_t reserved[124];
 };
 static_assert(sizeof(struct hook_info) == 648, "ABI compatibility");
 

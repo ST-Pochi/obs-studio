@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 #define NUM_BUFFERS 3
-#define HOOK_VERBOSE_LOGGING 0
+#define HOOK_VERBOSE_LOGGING 1
 
 #if HOOK_VERBOSE_LOGGING
 #define hlog_verbose(...) hlog(__VA_ARGS__)

@@ -131,6 +131,7 @@ void get_dxgi_offsets(struct dxgi_offsets *offsets,
 		offsets->present = vtable_offset(info.module, info.swap, 8);
 		offsets->resize = vtable_offset(info.module, info.swap, 13);
 		offsets3->create_texture2d = vtable_offset(info.d3d11_module, info.device, 0);
+		offsets3->om_set_render_targets = vtable_offset(info.d3d11_module, info.context, 7 + 26);
 		
 		IDXGISwapChain1 *swap1;
 		hr = info.swap->QueryInterface(__uuidof(IDXGISwapChain1),

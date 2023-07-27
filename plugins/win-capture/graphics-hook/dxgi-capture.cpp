@@ -20,10 +20,19 @@ typedef HRESULT(STDMETHODCALLTYPE *present_t)(IDXGISwapChain *, UINT, UINT);
 typedef HRESULT(STDMETHODCALLTYPE *present1_t)(IDXGISwapChain1 *, UINT, UINT,
 					       const DXGI_PRESENT_PARAMETERS *);
 
+
+typedef void(STDMETHODCALLTYPE *om_set_render_targets_t)(
+	ID3D11DeviceContext *This,
+	UINT NumViews,
+	ID3D11RenderTargetView *const *ppRenderTargetViews,
+	ID3D11DepthStencilView *pDepthStencilView);
+      
+
 release_t RealRelease = nullptr;
 resize_buffers_t RealResizeBuffers = nullptr;
 present_t RealPresent = nullptr;
 present1_t RealPresent1 = nullptr;
+om_set_render_targets_t RealOMSetRenderTargets;
 
 thread_local int dxgi_presenting = 0;
 struct ID3D12CommandQueue *dxgi_possible_swap_queues[8]{};
@@ -32,6 +41,7 @@ bool dxgi_present_attempted = false;
 
 struct dxgi_swap_data {
 	IDXGISwapChain *swap;
+	ID3D11DeviceContext *context;
 	void (*capture)(void *, void *);
 	void (*free)(void);
 };
@@ -54,6 +64,8 @@ static bool setup_dxgi(IDXGISwapChain *swap)
 
 		if (level >= D3D_FEATURE_LEVEL_11_0) {
 			hlog("Found D3D11 11.0 device on swap chain");
+
+			d3d11->GetImmediateContext(&data.context);
 
 			data.swap = swap;
 			data.capture = d3d11_capture;
@@ -135,6 +147,21 @@ static ULONG STDMETHODCALLTYPE hook_release(IUnknown *unknown)
 }
 
 static bool resize_buffers_called = false;
+
+
+
+
+static void STDMETHODCALLTYPE hook_om_set_render_targets(
+		ID3D11DeviceContext *This, UINT NumViews,
+		ID3D11RenderTargetView *const *ppRenderTargetViews,
+		ID3D11DepthStencilView *pDepthStencilView)
+{
+	hlog("OMSetRenderTargets callback %p numViews %d depthStencil %p", This, NumViews, pDepthStencilView);
+
+	RealOMSetRenderTargets(This, NumViews, ppRenderTargetViews,
+					       pDepthStencilView);
+}
+
 
 static HRESULT STDMETHODCALLTYPE hook_resize_buffers(IDXGISwapChain *swap,
 						     UINT buffer_count,
@@ -325,6 +352,14 @@ bool hook_dxgi(void)
 		return false;
 	}
 
+	HMODULE d3d11_module = get_system_module("d3d11.dll");
+	if (!d3d11_module) {
+		hlog_verbose("Failed to find d3d11.dll. Skipping hook attempt.");
+		return false;
+	}
+
+
+
 	/* ---------------------- */
 
 	void *present_addr = get_offset_addr(
@@ -340,6 +375,16 @@ bool hook_dxgi(void)
 		release_addr = get_offset_addr(
 			dxgi_module, global_hook_info->offsets.dxgi2.release);
 
+	void *om_set_render_targets_addr = nullptr;
+	if (global_hook_info->offsets.d3d11.om_set_render_targets) {
+		om_set_render_targets_addr = get_offset_addr(
+			d3d11_module,
+			global_hook_info->offsets.d3d11.om_set_render_targets);
+	}else {
+		hlog_verbose("Failed to find om_set_render_targets. Skipping hook attempt.");
+	}
+	hlog_verbose("test ok");
+
 	DetourTransactionBegin();
 
 	RealPresent = (present_t)present_addr;
@@ -347,6 +392,12 @@ bool hook_dxgi(void)
 
 	RealResizeBuffers = (resize_buffers_t)resize_addr;
 	DetourAttach(&(PVOID &)RealResizeBuffers, hook_resize_buffers);
+
+	if (om_set_render_targets_addr) {
+		RealOMSetRenderTargets = (om_set_render_targets_t)om_set_render_targets_addr;
+		DetourAttach(&(PVOID &)RealOMSetRenderTargets,
+			     hook_om_set_render_targets);
+	}
 
 	if (present1_addr) {
 		RealPresent1 = (present1_t)present1_addr;

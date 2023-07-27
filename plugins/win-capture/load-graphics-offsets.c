@@ -45,7 +45,11 @@ static inline bool load_offsets_from_string(struct graphics_offsets *offsets,
 
 	offsets->d3d11.create_texture2d=
 		(uint32_t)config_get_uint(config, "d3d11", "create_texture2d");
+	
+	offsets->d3d11.om_set_render_targets =
+		(uint32_t)config_get_uint(config, "d3d11", "om_set_render_targets");
 
+	
 
 	config_close(config);
 	return true;

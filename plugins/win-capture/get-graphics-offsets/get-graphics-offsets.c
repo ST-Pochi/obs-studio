@@ -43,6 +43,7 @@ int main(int argc, char *argv[])
 	printf("release=0x%" PRIx32 "\n", dxgi2.release);
 	printf("[d3d11]\n");
 	printf("create_texture2d=0x%" PRIx32 "\n", d3d11.create_texture2d);
+	printf("om_set_render_targets=0x%" PRIx32 "\n", d3d11.om_set_render_targets);
 
 	(void)argc;
 	(void)argv;
