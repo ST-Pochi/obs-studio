@@ -158,7 +158,7 @@ static void STDMETHODCALLTYPE hook_om_set_render_targets(
 		ID3D11RenderTargetView *const *ppRenderTargetViews,
 		ID3D11DepthStencilView *pDepthStencilView)
 {
-	hlog("OMSetRenderTargets callback %p numViews %d depthStencil %p", This, NumViews, pDepthStencilView);
+	//hlog("OMSetRenderTargets callback %p numViews %d depthStencil %p", This, NumViews, pDepthStencilView);
 
 	if (data.depth_callback)
 		data.depth_callback(pDepthStencilView);
@@ -249,10 +249,10 @@ static HRESULT STDMETHODCALLTYPE hook_present(IDXGISwapChain *swap,
 		setup_dxgi(swap);
 	}
 
-	hlog_verbose(
-		"Present callback: sync_interval=%u, flags=%u, current_swap=0x%" PRIX64
-		", expected_swap=0x%" PRIX64,
-		sync_interval, flags, swap, data.swap);
+	//hlog_verbose(
+	//	"Present callback: sync_interval=%u, flags=%u, current_swap=0x%" PRIX64
+	//	", expected_swap=0x%" PRIX64,
+	//	sync_interval, flags, swap, data.swap);
 	const bool capture = !test_draw && swap == data.swap && data.capture;
 	if (capture && !capture_overlay) {
 		IUnknown *backbuffer = get_dxgi_backbuffer(swap);

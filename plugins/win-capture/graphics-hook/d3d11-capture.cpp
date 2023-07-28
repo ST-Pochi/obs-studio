@@ -33,6 +33,7 @@ struct d3d11_data {
 			struct shtex_data *shtex_info;
 			ID3D11Texture2D *texture;
 			HANDLE handle;
+			HANDLE depthHandle;
 		};
 		/* shared memory */
 		struct {
@@ -45,12 +46,27 @@ struct d3d11_data {
 			int copy_wait;
 		};
 	};
+
+	struct {
+		uint32_t cx;
+		uint32_t cy;
+		ID3D11Texture2D *copy_tex;
+		ID3D11Texture2D *src_tex;
+		bool find_depth;
+		ID3D11Texture2D *binded_depth;
+
+	} depth;
+
 };
 
 static struct d3d11_data data = {};
 
 void d3d11_free(void)
 {
+	if (data.depth.src_tex)
+		data.depth.src_tex->Release();
+	if (data.depth.copy_tex)
+		data.depth.copy_tex->Release();
 	if (data.scale_tex)
 		data.scale_tex->Release();
 	if (data.scale_resource)
@@ -368,11 +384,86 @@ void d3d11_capture(void *swap_ptr, void *backbuffer_ptr)
 			d3d11_shmem_capture(backbuffer);
 
 		backbuffer->Release();
+		data.depth.find_depth = true;
 	}
 }
 
 
+void d3d11_create_depth_tex(D3D11_TEXTURE2D_DESC texDesc)
+{
+	HRESULT hr;
+
+	texDesc.MipLevels = 1;
+	texDesc.ArraySize = 1;
+	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	texDesc.SampleDesc.Count = 1;
+	texDesc.Usage = D3D11_USAGE_DEFAULT;
+	texDesc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+
+	hr = data.device->CreateTexture2D(&texDesc, nullptr, &data.depth.copy_tex);
+	if (FAILED(hr)) {
+		hlog_hr("d3d11_depth_callback: failed to create depth texture",
+		        hr);
+	}
+
+	IDXGIResource *dxgi_res;
+	hr = data.depth.copy_tex->QueryInterface(__uuidof(IDXGIResource), (void **)&dxgi_res);
+	if (FAILED(hr)) {
+		hlog_hr("d3d11_depth_callback: failed to query "
+		        "IDXGIResource interface from texture",
+		        hr);
+	}
+
+	hr = dxgi_res->GetSharedHandle(&data.depthHandle);
+	dxgi_res->Release();
+
+	if (FAILED(hr)) {
+		hlog_hr("d3d11_depth_callback: failed to get shared handle",
+		        hr);
+	}
+}
+
 void d3d11_depth_callback(void *view_ptr)
 {
+	if (!capture_ready())
+		return;
+		
+	ID3D11DepthStencilView *view = (ID3D11DepthStencilView *)view_ptr;
+
+	ID3D11Texture2D *tex = nullptr;
+	D3D11_TEXTURE2D_DESC texDesc;
+
+	view->GetResource((ID3D11Resource **)&tex);
+	tex->GetDesc(&texDesc);
+
+	if (!data.depth.copy_tex) {
+				
+		d3d11_create_depth_tex(texDesc);
+
+		hlog("d3d11_depth_callback: created texture %d x %d", texDesc.Width, texDesc.Height);
+	}
+
+	if (data.depth.find_depth && data.depth.copy_tex) {
+		tex->AddRef();
+		data.depth.src_tex = tex;
+		data.depth.find_depth = false;
+		//D3D11_TEXTURE2D_DESC texDesc;
+		//tex->GetDesc(&texDesc);
+	}
+	tex->Release();
 	
+	if (data.depth.src_tex) {
+		bool doCopy = data.depth.binded_depth == data.depth.src_tex &&
+			      tex != data.depth.src_tex;
+
+		if (doCopy) {
+			data.context->CopyResource(data.depth.copy_tex, data.depth.src_tex);
+			hlog("d3d11_depth_callback: CopyResource %p to %p", data.depth.src_tex, data.depth.copy_tex);
+		}
+
+		data.depth.src_tex->Release();
+		data.depth.src_tex = nullptr;
+	}
+
+	data.depth.binded_depth = tex;
 }
