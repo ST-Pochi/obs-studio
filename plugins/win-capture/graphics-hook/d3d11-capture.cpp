@@ -59,8 +59,8 @@ struct d3d11_data {
 		{
 
 			hlog("d3d11_depth free");
-//			if (src_tex)
-//				src_tex->Release();
+			if (src_tex)
+				src_tex->Release();
 			if (copy_tex)
 				copy_tex->Release();
 	
@@ -430,11 +430,13 @@ void d3d11_create_depth_tex(D3D11_TEXTURE2D_DESC texDesc)
 	}
 }
 
+void d3d11_depth_callback2(void *view_ptr)
+{
+	
+}
+
 void d3d11_depth_callback(void *view_ptr)
 {
-	if (!capture_ready())
-		return;
-		
 	ID3D11DepthStencilView *view = (ID3D11DepthStencilView *)view_ptr;
 
 	ID3D11Texture2D *tex = nullptr;
