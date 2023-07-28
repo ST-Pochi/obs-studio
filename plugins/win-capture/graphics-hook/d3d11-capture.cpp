@@ -55,6 +55,16 @@ struct d3d11_data {
 		bool find_depth;
 		ID3D11Texture2D *binded_depth;
 
+		void free()
+		{
+
+			hlog("d3d11_depth free");
+//			if (src_tex)
+//				src_tex->Release();
+			if (copy_tex)
+				copy_tex->Release();
+	
+		}
 	} depth;
 
 };
@@ -63,10 +73,7 @@ static struct d3d11_data data = {};
 
 void d3d11_free(void)
 {
-	if (data.depth.src_tex)
-		data.depth.src_tex->Release();
-	if (data.depth.copy_tex)
-		data.depth.copy_tex->Release();
+	data.depth.free();
 	if (data.scale_tex)
 		data.scale_tex->Release();
 	if (data.scale_resource)
@@ -433,8 +440,13 @@ void d3d11_depth_callback(void *view_ptr)
 	ID3D11Texture2D *tex = nullptr;
 	D3D11_TEXTURE2D_DESC texDesc;
 
-	view->GetResource((ID3D11Resource **)&tex);
-	tex->GetDesc(&texDesc);
+	if (view) {
+		view->GetResource((ID3D11Resource **)&tex);
+
+		if (tex)
+			tex->GetDesc(&texDesc);
+		
+	}
 
 	if (!data.depth.copy_tex) {
 				
@@ -444,23 +456,28 @@ void d3d11_depth_callback(void *view_ptr)
 	}
 
 	if (data.depth.find_depth && data.depth.copy_tex) {
-		tex->AddRef();
+		hlog("data.depth.find_depth && data.depth.copy_tex");
+		
 		data.depth.src_tex = tex;
 		data.depth.find_depth = false;
+		data.depth.src_tex->AddRef();
 		//D3D11_TEXTURE2D_DESC texDesc;
 		//tex->GetDesc(&texDesc);
 	}
-	tex->Release();
+	if (tex)
+		tex->Release();
 	
 	if (data.depth.src_tex) {
 		bool doCopy = data.depth.binded_depth == data.depth.src_tex &&
 			      tex != data.depth.src_tex;
 
 		if (doCopy) {
+			hlog("d3d11_depth_callback before copy");
 			data.context->CopyResource(data.depth.copy_tex, data.depth.src_tex);
 			hlog("d3d11_depth_callback: CopyResource %p to %p", data.depth.src_tex, data.depth.copy_tex);
 		}
 
+		hlog("d3d11_depth_callback before release");
 		data.depth.src_tex->Release();
 		data.depth.src_tex = nullptr;
 	}
